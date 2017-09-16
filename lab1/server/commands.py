@@ -1,8 +1,15 @@
-server_commands = {
+help_list = {
     "ECHO": "return typed string after this command",
     "TIME": "show server time",
-    "CLOSE": "close server connection",
+    "EXIT": "close server connection",
     "HELP": "help list"
+}
+
+server_commands = {
+    "ECHO": "echo",
+    "TIME": "time",
+    "EXIT": "exit",
+    "HELP": "help"
 }
 
 client_commands = {
