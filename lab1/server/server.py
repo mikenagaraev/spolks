@@ -6,13 +6,13 @@ import os
 import os.path
 from commands import server_commands, client_commands, help_list
 #
-ip = '192.168.100.7'
+ip = '192.168.100.5'
 # port = 8081
 
 # ip = '192.168.0.110'
 
 port = 9001
-BUFFER_SIZE = 2048
+BUFFER_SIZE = 1024
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -32,7 +32,6 @@ def handle_client(client_socket):
         request = request.strip()
         print("[*] Received: %s" %request)
         handle_client_request(client_socket, request)
-        # client_socket.shutdown(socket.SHUT_WR)
 
 def handle_client_request(client, request):
     command = request.split()
@@ -43,35 +42,35 @@ def handle_client_request(client, request):
 
     if (client_commands.get(name_command) == "download"):
         if (is_file_exist(file_name)):
-            send_status(client, name_command, 200)
+            send_status(name_command, 200)
             download(file_name)
         else:
             no_file = "File: " + file_name + " is not exist."
-            send_status_and_message(client, name_command, 500, "No such file")
+            send_status_and_message(name_command, 500, "No such file")
 
     elif (client_commands.get(name_command) == "delete"):
         if (is_file_exist(file_name)):
-            send_status(client, name_command, 200)
+            send_status(name_command, 200)
             delete(file_name)
         else:
             no_file = "File: " + file_name + " is not exist."
-            send_status_and_message(client, name_command, 500, "No such file")
+            send_status_and_message(name_command, 500, "No such file")
 
     elif (client_commands.get(name_command) == "upload"):
         if (is_file_exist(file_name)):
-            send_status(client, name_command, 200)
+            send_status(name_command, 200)
             upload(file_name)
         else:
             no_file = "File: " + file_name + " is not exist."
-            send_status_and_message(client, name_command, 500, no_file)
+            send_status_and_message(name_command, 500, no_file)
     else:
-        send_status_and_message(client, name_command, 500, "Unknown command")
+        send_status_and_message(name_command, 500, "Unknown command")
 
-def send_status_and_message(client, request, status, message):
+def send_status_and_message(request, status, message):
     message = str("" + request + " " + str(status) + " " + message)
     client.send(message.encode('utf-8'))
 
-def send_status(client, request, status):
+def send_status(request, status):
     message = str("" + request + " " + str(status))
     client.send(message.encode('utf-8'))
 
@@ -83,21 +82,32 @@ def delete(file_name):
 
 def upload(file_name):
     f = open(file_name, 'wb')
-    data = client.recv(BUFFER_SIZE)
-    while (data):
-        f.write(data)
+    size = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+    client.send("OK".encode('utf-8'))
+    data_size_recv = 0
+
+    while (data_size_recv != size):
         data = client.recv(BUFFER_SIZE)
+        f.write(data)
+        data_size_recv += len(data)
+
     f.close()
 
 
 def download(file_name):
     f = open (file_name, "rb")
     data_file = f.read(BUFFER_SIZE)
+    size = os.path.getsize(file_name)
+    client.send(str(size).encode('utf-8'))
+    while (client.recv(2).decode('utf-8') != "OK"):
+        pass
+
     while (data_file):
-        client.send(data_file)
+        client.sendall(data_file)
         data_file = f.read(BUFFER_SIZE)
 
     f.close()
+
 
 def server_cli():
     while True:
@@ -127,10 +137,16 @@ def handle_server_command(command, body):
     if (server_commands.get(command) == "echo"):
         print(body)
     if (server_commands.get(command) == "time"):
-        print("Server time: " + str(datetime.now()))
+        print("Server time: " + str(datetime.now())[:19])
     if (server_commands.get(command) == "exit"):
+        client.shutdown(socket.SHUT_WR)
+        client.close()
+        server.close()
         os._exit(1)
 
+#
+# def send_close_message():
+#     client.send("CLOSE".decode('utf-8'))
 
 
 def input_command():
