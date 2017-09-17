@@ -8,53 +8,124 @@ from commands import server_commands, client_commands
 ip = '192.168.0.110'
 port = 9001
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind((ip, port))
-server.listen(1)
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
+ip = '192.168.0.110'
+port = 9001
 
-def show_start_message():
-    print("Hello, listened on %s:%d" %(ip, port))
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
-def handle_client(client_socket):
-    while True:
-        request = client_socket.recv(2048).decode('utf-8')
-        print("[*] Received: %s" %request)
-        handle_client_request(client_socket, request)
-        client_socket.shutdown(socket.SHUT_WR)
+ip = '192.168.0.110'
+port = 9001
 
-def handle_client_request(client, request):
-    command, body = request.split(":")
-    if (client_commands.get(command) == "download"):
-        download(body)
-    if (client_commands.get(command) == "delete"):
-        delete(body)
-    if (client_commands.get(command) == "upload"):
-        upload(body)
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
-def delete(file_name):
-    pass
+ip = '192.168.0.110'
+port = 9001
 
-def upload(file_name):
-    pass
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
+ip = '192.168.0.110'
+port = 9001
 
-def download(file_name):
-    f = open (file_name, "rb")
-    data_file = f.read(1024)
-    while (data_file):
-        client.send(data_file)
-        data_file = f.read(1024)
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
-    f.close()
+ip = '192.168.0.110'
+port = 9001
 
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
-show_start_message();
+ip = '192.168.0.110'
+port = 9001
 
-while True:
-    client, addr = server.accept()
-    print("[*] Accepted connection from: %s:%d" % (addr[0], addr[1]))
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
 
-    client_handle = threading.Thread(target=handle_client, args=(client,))
-    client_handle.start()
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
+
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
+
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
+
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
+
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(soimport socket
+import threading
+from commands import server_commands, client_commands
+#
+# ip = '127.0.0.1'
+# port = 8081
+
+ip = '192.168.0.110'
+port = 9001
+
+server = socket.socket(so

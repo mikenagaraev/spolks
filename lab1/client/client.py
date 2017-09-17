@@ -2,11 +2,13 @@ import socket
 from commands import client_commands
 import os
 import os.path
+import sys
 
-host = '192.168.100.5'
+# host = '192.168.100.5'
+host = ''
 port = 9001
 
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 50
 
 #host = '127.0.0.1'
 #port = 8081
@@ -71,6 +73,11 @@ def download(file_name):
         data = client.recv(BUFFER_SIZE)
         f.write(data)
         data_size_recv += len(data)
+        client.send(str(data_size_recv).encode('utf-8'))
+
+        progress = (data_size_recv / size) * 100
+        sys.stdout.write("Download progress: %d%% \r" %progress)
+        sys.stdout.flush()
 
     f.close()
     print(file_name + " was downloaded")
@@ -78,15 +85,21 @@ def download(file_name):
 def upload(file_name):
     f = open(file_name, "rb")
     data_file = f.read(BUFFER_SIZE)
-    size = os.path.getsize(file_name)
+    size = int(os.path.getsize(file_name))
     client.send(str(size).encode('utf-8'))
+    data_size_recv = 0
 
     while (client.recv(2).decode('utf-8') != "OK"):
         pass
 
-    while (data_file):
+    while (data_size_recv != size):
         client.sendall(data_file)
         data_file = f.read(BUFFER_SIZE)
+        data_size_recv = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+
+        progress = (data_size_recv / size) * 100
+        sys.stdout.write("Upload progress: %d%% \r" %progress)
+        sys.stdout.flush()
 
     f.close()
     print(file_name + " was uploaded")
