@@ -4,6 +4,12 @@ from datetime import datetime
 import sys
 import os
 import os.path
+impimport socket
+import threading
+from datetime import datetime
+import sys
+import os
+import os.path
 import time
 from commands import server_commands, client_commands, help_list
 #
@@ -185,5 +191,3 @@ while True:
 
     client_handle = threading.Thread(target=handle_client, args=(clients_pool[client_ID], ))
     client_handle.start()
-
-    client_ID += 1;
