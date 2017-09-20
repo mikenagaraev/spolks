@@ -190,7 +190,8 @@ def upload(client, file_name):
         data_size_recv = int(data_size_recv)
 
     waiting_client = search_by_ip(waiting_clients, client['ip'])
-    waiting_clients[:] = []
+    if (len(waiting_clients) > 0 and waiting_client != False):
+        waiting_clients.remove(waiting_client)
 
     if (waiting_client):
         if (waiting_client['file_name'] == file_name and waiting_client['command'] == 'upload'):
@@ -207,13 +208,15 @@ def upload(client, file_name):
         f = open(file_name, "rb+")
 
 
+    f.seek(data_size_recv, 0)
+
     while (data_size_recv < size):
         try:
             data = client['socket'].recv(BUFFER_SIZE)
-            f.seek(data_size_recv, 0)
             f.write(data)
             data_size_recv += len(data)
             send_data(client, data_size_recv)
+            f.seek(data_size_recv, 0)
 
         except socket.error as e:
             handle_disconnect(client, "upload", file_name, data_size_recv)

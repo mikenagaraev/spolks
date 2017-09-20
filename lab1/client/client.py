@@ -1,5 +1,4 @@
 import socket
-import threading
 from commands import client_commands
 import os
 import os.path
@@ -214,7 +213,7 @@ def upload(file_name, request):
 
         if (received_data):
             data_size_recv = int(received_data)
-            f.seek(data_size_recv)
+            f.seek(data_size_recv, 0)
 
     f.close()
     print("\n" + file_name + " was uploaded")
