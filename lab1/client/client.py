@@ -5,6 +5,7 @@ import os.path
 import sys
 import errno
 import time
+import re
 
 HOST = ''
 PORT = 9001
@@ -13,9 +14,6 @@ BUFFER_SIZE = 1024
 TIMEOUT = 10
 
 OK_STATUS = 200
-
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((HOST, PORT))
 
 
 def wait_ok():
@@ -237,8 +235,32 @@ def show_status():
 def show_error_message(error):
     print(error)
 
+def show_start_message():
+    print("\nWelcome to client cli!")
+
+is_valid_address = False
+
+REGULAR_IP = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
+regex = re.compile(REGULAR_IP)
+
+
+while (is_valid_address == False):
+    addr = input("\nInput host addres: ")
+    if (regex.match(addr)):
+        is_valid_address = True
+        HOST = addr
+        show_start_message()
+    else:
+        print("Please, input valid address")
+        is_valid_address = False
+
+
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect((HOST, PORT))
+
 
 while True:
+
     try:
         request = input()
         if (check_valid_request(request)):
