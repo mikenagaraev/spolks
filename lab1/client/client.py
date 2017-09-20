@@ -24,19 +24,22 @@ def handle_input_request(request):
     name_command = command[0]
 
     if (len(command) == 2):
-        body = command[1]
+        file_name = command[1]
 
     if (wait_for_ack(name_command) == False):
         return
 
     if (client_commands.get(name_command) == "download"):
-        download(body, request)
+        download(file_name, request)
 
     if (client_commands.get(name_command) == "upload"):
-        upload(body, request)
+        if (is_file_exist(file_name)):
+            upload(file_name, request)
+        else:
+            show_error_message("No such file exists")
 
     if (client_commands.get(name_command) == "delete"):
-        delete(body, request)
+        delete(file_name, request)
 
     if (client_commands.get(name_command) == "exit"):
         os._exit(1)
@@ -80,6 +83,10 @@ def handle_disconnect(request, command):
             print("no connetion")
 
         time.sleep(1)
+
+def wait_ok():
+    while (client.recv(2).decode('utf-8') != "OK"):
+        print("wait for OK")
 
 def send_ok():
     client.send("OK".encode('utf-8'))
@@ -138,24 +145,53 @@ def download(file_name, request):
     f.close()
     print(file_name + " was downloaded")
 
-def upload(file_name):
-    f = open(file_name, "rb")
-    data_file = f.read(BUFFER_SIZE)
+def upload(file_name, request):
+    f = open (file_name, "rb+")
+
     size = int(os.path.getsize(file_name))
-    client.send(str(size).encode('utf-8'))
-    data_size_recv = 0
 
-    while (client.recv(2).decode('utf-8') != "OK"):
-        pass
+    send_data(size) #1
 
-    while (data_size_recv != size):
-        client.sendall(data_file)
-        data_file = f.read(BUFFER_SIZE)
-        data_size_recv = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+    wait_ok() #2
 
-        progress = (data_size_recv / size) * 100
-        sys.stdout.write("Upload progress: %d%% \r" %progress)
-        sys.stdout.flush()
+    send_data(0) #3
+
+    data_size_recv = int(get_data()) #4
+
+    wait_ok() #5
+
+    f.seek(data_size_recv, 0)
+
+    while (data_size_recv < size):
+        try:
+            data_file = f.read(BUFFER_SIZE)
+            client.send(data_file)
+            received_data = get_data()
+
+            progress = (data_size_recv / size) * 100
+            sys.stdout.write("Upload progress: %d%% \r" %progress)
+            sys.stdout.flush()
+
+        except socket.error as e:
+            handle_disconnect(request, "upload")
+            send_data(size)
+            wait_ok()
+            send_data(data_size_recv)
+            data_size_recv = int(get_data())
+            wait_ok()
+
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt was handled")
+            f.close()
+            client.close()
+            os._exit(1)
+
+        if (received_data):
+            data_size_recv = int(received_data)
+            f.seek(data_size_recv)
+
+
+        time.sleep(0.5)
 
     f.close()
     print(file_name + " was uploaded")

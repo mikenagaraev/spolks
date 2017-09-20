@@ -6,14 +6,22 @@ import os
 import os.path
 import time
 from commands import server_commands, client_commands, help_list
+#
+# ip = '192.168.100.5'
+ip = ''
+# port = 8081
 
-IP = ''
+# ip = '192.168.0.110'
 
-PORT = 9001
-BUFFER_SIZE = 2048
+port = 9001
+BUFFER_SIZE = 100
 
-OK_STATUS = 200
-SERVER_ERROR = 500
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind((ip, port))
+server.listen(5)
+
 
 
 def send_status_and_message(client, request, status, message):
@@ -45,27 +53,29 @@ def handle_client_request(client, request):
 
     if (client_commands.get(name_command) == "download"):
         if (is_file_exist(file_name)):
-            send_status(client['socket'], name_command, OK_STATUS)
+            send_status(client['socket'], name_command, 200)
             download(client, file_name)
         else:
             no_file = "File: " + file_name + " is not exist."
-            send_status_and_message(client['socket'], name_command, SERVER_ERROR, "No such file")
-
-
-    elif (client_commands.get(name_command) == "upload"):
-        send_status(client['socket'], name_command, OK_STATUS)
-        upload(client, file_name)
+            send_status_and_message(client['socket'], name_command, 500, "No such file")
 
     elif (client_commands.get(name_command) == "delete"):
         if (is_file_exist(file_name)):
-            send_status(client['socket'], name_command, OK_STATUS)
+            send_status(client['socket'], name_command, 200)
             delete(client, file_name)
         else:
             no_file = "File: " + file_name + " is not exist."
-            send_status_and_message(client['socket'], name_command, SERVER_ERROR, "No such file")
+            send_status_and_message(client['socket'], name_command, 500, "No such file")
 
+    elif (client_commands.get(name_command) == "upload"):
+        if (is_file_exist(file_name)):
+            send_status(client['socket'], name_command, 200)
+            upload(client, file_name)
+        else:
+            no_file = "File: " + file_name + " is not exist."
+            send_status_and_message(client['socket'], name_command, 500, no_file)
     else:
-        send_status_and_message(client['socket'], name_command, SERVER_ERROR, "Unknown command")
+        send_status_and_message(client['socket'], name_command, 500, "Unknown command")
 
 def delete(client, file_name):
     pass
@@ -106,109 +116,75 @@ def handle_disconnect(client, command, file_name, progress):
 
     client['socket'].close()
     clients_pool.remove(client)
-
-def wait_ok(client):
-    while (client['socket'].recv(2).decode('utf-8') != "OK"):
-        print("wait for OK")
-
-def send_ok(client):
-    client['socket'].send("OK".encode('utf-8'))
-
-def get_data(client):
-    return client['socket'].recv(BUFFER_SIZE).decode('utf-8')
-
-def send_data(client, data):
-    client['socket'].send(str(data).encode('utf-8'))
+    print("client disconnected")
+    # if (is_client_available(client['ip']) == False):
+    #     waiting_clients.remove(search_by_ip(waiting_clients, client['ip']))
 
 def download(client, file_name):
     f = open (file_name, "rb+")
-
+    data_file = f.read(BUFFER_SIZE)
     size = int(os.path.getsize(file_name))
-
-    send_data(client, size) #1
-
-    wait_ok(client) #2
 
     waiting_client = search_by_ip(waiting_clients, client['ip'])
     waiting_clients[:] = []
 
-    data_size_recv = int(get_data(client)) #3
+    client['socket'].send(str(size).encode('utf-8'))
+
+    while (client['socket'].recv(2).decode('utf-8') != "OK"):
+        print("wait for OK")
 
     if (waiting_client):
-        if (waiting_client['file_name'] == file_name and waiting_client['command'] == 'download'):
+        if (waiting_client['command'] == 'download'):
             data_size_recv = int(waiting_client['progress'])
-            send_data(client, data_size_recv)
+            print('progress ' + str(data_size_recv))
     else:
-        send_data(client, data_size_recv) #4
+        data_size_recv = 0
 
-    wait_ok(client) #5
+    client['socket'].send(str(data_size_recv).encode('utf-8'))
 
-    f.seek(data_size_recv, 0)
-
-    while (data_size_recv < size):
+    f.seek(data_size_recv)
+    print(data_size_recv, size)
+    while (data_size_recv < size + BUFFER_SIZE):
+        time.sleep(0.2)
         try:
-            data_file = f.read(BUFFER_SIZE)
+            print(data_file)
             client['socket'].sendall(data_file)
-            received_data = get_data(client)
+            data_file = f.read(BUFFER_SIZE)
+            received_data = client['socket'].recv(BUFFER_SIZE)
 
         except socket.error as e:
+            data_size_recv = data_size_recv - BUFFER_SIZE
             handle_disconnect(client, "download", file_name, data_size_recv)
             client['is_closed'] = True
+            f.close()
             return
 
         except KeyboardInterrupt:
+            print("KeyboardInterrupt was handled")
+            f.close()
             server.close()
             client.socket.close()
             os._exit(1)
 
         if received_data:
-            data_size_recv = int(received_data)
-            f.seek(data_size_recv)
+            data_size_recv = int(received_data.decode('utf-8'))
 
-        time.sleep(1)
-
+    print("file server was downloaded")
     f.close()
 
-def upload(client, file_name):
-    size = int(get_data(client)) #1
+def upload(client, client_id, file_name):
+    f = open(file_name, 'wb')
+    size = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+    client.send("OK".encode('utf-8'))
+    data_size_recv = 0
 
-    send_ok(client) #2
+    while (data_size_recv != size):
+        time.sleep(1)
 
-    data_size_recv = get_data(client) #3
-    print (data_size_recv)
-    if (data_size_recv):
-        data_size_recv = int(data_size_recv)
-
-    waiting_client = search_by_ip(waiting_clients, client['ip'])
-    waiting_clients[:] = []
-
-    if (waiting_client):
-        if (waiting_client['file_name'] == file_name and waiting_client['command'] == 'upload'):
-            data_size_recv = int(waiting_client['progress'])
-            send_data(client, data_size_recv)
-    else:
-        send_data(client, data_size_recv) #4
-
-    send_ok(client) #5
-
-    if (data_size_recv == 0):
-        f = open(file_name, "wb")
-    else:
-        f = open(file_name, "rb+")
-
-
-    while (data_size_recv < size):
-        try:
-            data = client['socket'].recv(BUFFER_SIZE)
-            f.seek(data_size_recv, 0)
-            f.write(data)
-            data_size_recv += len(data)
-            send_data(client, data_size_recv)
-
-        except socket.error as e:
-            handle_disconnect(client, "upload", file_name, data_size_recv)
-            client['is_closed'] = True
-            return
+        data = client.recv(BUFFER_SIZE)
+        f.write(data)
+        data_size_recv += len(data)
+        client.send(str(data_size_recv).encode('utf-8'))
 
     f.close()
 
@@ -251,22 +227,15 @@ def show_server_menu():
 
 
 def show_start_message():
-    print("Hello, listened on %s:%d" %(IP, PORT))
+    print("Hello, listened on %s:%d" %(ip, port))
     show_server_menu()
-
-
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-server.bind((IP, PORT))
-server.listen(5)
 
 show_start_message();
 server_cli = threading.Thread(target=server_cli)
 server_cli.start()
-
 clients_pool = []
 waiting_clients = []
+
 
 
 while True:
