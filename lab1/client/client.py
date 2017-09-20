@@ -10,35 +10,54 @@ import time
 HOST = ''
 PORT = 9001
 
-BUFFER_SIZE = 2048
-TIMEOUT = 30
+BUFFER_SIZE = 1024
+TIMEOUT = 10
 
 OK_STATUS = 200
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((HOST, PORT))
 
+
+def wait_ok():
+    while (client.recv(2).decode('utf-8') != "OK"):
+        print("wait for OK")
+
+def send_ok():
+    client.send("OK".encode('utf-8'))
+
+def get_data():
+    return client.recv(BUFFER_SIZE).decode('utf-8')
+
+def send_data(data):
+    client.send(str(data).encode('utf-8'))
+
 def handle_input_request(request):
-    client.sendall((request).encode('utf-8'))
     command = request.split()
     name_command = command[0]
 
     if (len(command) == 2):
         file_name = command[1]
 
-    if (wait_for_ack(name_command) == False):
-        return
-
     if (client_commands.get(name_command) == "download"):
+        send_data(request)
+        if (wait_for_ack(name_command) == False):
+            return
         download(file_name, request)
 
     if (client_commands.get(name_command) == "upload"):
         if (is_file_exist(file_name)):
+            send_data(request)
+            if (wait_for_ack(name_command) == False):
+                return
             upload(file_name, request)
         else:
             show_error_message("No such file exists")
 
     if (client_commands.get(name_command) == "delete"):
+        send_data(request)
+        if (wait_for_ack(name_command) == False):
+            return
         delete(file_name, request)
 
     if (client_commands.get(name_command) == "exit"):
@@ -66,36 +85,33 @@ def wait_for_ack(command_to_compare):
         else:
             return False
 
-def handle_disconnect(request, command):
+def is_server_available(request, command):
     global client
 
-    print("Remote Disconnect")
     client.close()
 
-    while(1):
+    i = TIMEOUT
+
+    while(i > 0):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.connect((HOST, PORT))
             client.send(request.encode('utf-8'))
             wait_for_ack(command)
-            break;
-        except socket.error as er:
-            print("no connetion")
+            return True
 
+        except socket.error as er:
+            sys.stdout.write("Waiting for a server: %d seconds \r" %i)
+            sys.stdout.flush()
+
+        i -= 1
         time.sleep(1)
 
-def wait_ok():
-    while (client.recv(2).decode('utf-8') != "OK"):
-        print("wait for OK")
+    sys.stdout.flush()
+    print("\nServer was disconnected")
+    sys.stdout.flush()
+    return False
 
-def send_ok():
-    client.send("OK".encode('utf-8'))
-
-def get_data():
-    return client.recv(BUFFER_SIZE).decode('utf-8')
-
-def send_data(data):
-    client.send(str(data).encode('utf-8'))
 
 def is_file_exist(file_name):
     return os.path.exists(file_name)
@@ -109,12 +125,12 @@ def download(file_name, request):
 
     data_size_recv = int(get_data()) #4
 
+    send_ok() #5
+
     if (data_size_recv == 0):
         f = open(file_name, "wb")
     else:
         f = open(file_name, "rb+")
-
-    send_ok() #5
 
     while (data_size_recv < size):
         try:
@@ -129,12 +145,17 @@ def download(file_name, request):
             sys.stdout.flush()
 
         except socket.error as e:
-            handle_disconnect(request, "download")
-            size = int(get_data())
-            send_ok()
-            send_data(data_size_recv)
-            data_size_recv = int(get_data())
-            send_ok()
+            if(is_server_available(request, "download")):
+                size = int(get_data())
+                send_ok()
+                send_data(data_size_recv)
+                data_size_recv = int(get_data())
+                send_ok()
+                print("\n")
+            else:
+                f.close()
+                client.close()
+                os._exit(1)
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt was handled")
@@ -143,7 +164,7 @@ def download(file_name, request):
             os._exit(1)
 
     f.close()
-    print(file_name + " was downloaded")
+    print("\n" + file_name + " was downloaded")
 
 def upload(file_name, request):
     f = open (file_name, "rb+")
@@ -173,12 +194,17 @@ def upload(file_name, request):
             sys.stdout.flush()
 
         except socket.error as e:
-            handle_disconnect(request, "upload")
-            send_data(size)
-            wait_ok()
-            send_data(data_size_recv)
-            data_size_recv = int(get_data())
-            wait_ok()
+            if(is_server_available(request, "upload")):
+                send_data(size)
+                wait_ok()
+                send_data(data_size_recv)
+                data_size_recv = int(get_data())
+                wait_ok()
+                print("\n")
+            else:
+                f.close()
+                client.close()
+                os._exit(1)
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt was handled")
@@ -190,11 +216,8 @@ def upload(file_name, request):
             data_size_recv = int(received_data)
             f.seek(data_size_recv)
 
-
-        time.sleep(0.5)
-
     f.close()
-    print(file_name + " was uploaded")
+    print("\n" + file_name + " was uploaded")
 
 
 def delete(file_name):
@@ -225,6 +248,3 @@ while True:
         print("KeyboardInterrupt was handled")
         client.close()
         os._exit(1)
-
-    # else:
-    #     show_error_message("Not Valid Command")
