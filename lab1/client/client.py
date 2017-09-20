@@ -7,18 +7,16 @@ import sys
 import errno
 import time
 
-# host = '192.168.100.5'
-host = ''
-port = 9001
+HOST = ''
+PORT = 9001
 
 BUFFER_SIZE = 2048
 TIMEOUT = 30
 
-#host = '127.0.0.1'
-#port = 8081
+OK_STATUS = 200
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((host, port))
+client.connect((HOST, PORT))
 
 def handle_input_request(request):
     client.sendall((request).encode('utf-8'))
@@ -57,7 +55,7 @@ def wait_for_ack(command_to_compare):
             message = response[2]
         else: message = None
 
-        if (command_to_compare == sent_request and int(status) == 200):
+        if (command_to_compare == sent_request and int(status) == OK_STATUS):
             return True
         elif (message):
             print(message)
@@ -74,7 +72,7 @@ def handle_disconnect(request, command):
     while(1):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((host, port))
+            client.connect((HOST, PORT))
             client.send(request.encode('utf-8'))
             wait_for_ack(command)
             break;
