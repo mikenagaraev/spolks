@@ -11,7 +11,7 @@ import time
 host = ''
 port = 9001
 
-BUFFER_SIZE = 100
+BUFFER_SIZE = 2048
 TIMEOUT = 30
 
 #host = '127.0.0.1'
@@ -65,7 +65,7 @@ def wait_for_ack(command_to_compare):
         else:
             return False
 
-def handle_disconnect(request, command, current_size):
+def handle_disconnect(request, command):
     global client
 
     print("Remote Disconnect")
@@ -77,48 +77,67 @@ def handle_disconnect(request, command, current_size):
             client.connect((host, port))
             client.send(request.encode('utf-8'))
             wait_for_ack(command)
-            client.send("OK".encode('utf-8'))
-            client.send(str(current_size).encode('utf-8'))
             break;
         except socket.error as er:
             print("no connetion")
 
         time.sleep(1)
 
-
-def download(file_name, request):
-    f = open(file_name, 'wb')
-    size = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+def send_ok():
     client.send("OK".encode('utf-8'))
 
-    data_size_recv = int(client.recv(BUFFER_SIZE).decode('utf-8'))
+def get_data():
+    return client.recv(BUFFER_SIZE).decode('utf-8')
 
-    f.seek(data_size_recv)
+def send_data(data):
+    client.send(str(data).encode('utf-8'))
+
+def is_file_exist(file_name):
+    return os.path.exists(file_name)
+
+def download(file_name, request):
+    size = int(get_data()) #1
+
+    send_ok() #2
+
+    send_data(0) #3
+
+    data_size_recv = int(get_data()) #4
+
+    if (data_size_recv == 0):
+        f = open(file_name, "wb")
+    else:
+        f = open(file_name, "rb+")
+
+    send_ok() #5
 
     while (data_size_recv < size):
         try:
             data = client.recv(BUFFER_SIZE)
+            f.seek(data_size_recv, 0)
             f.write(data)
             data_size_recv += len(data)
-            try:
-                client.send(str(data_size_recv).encode('utf-8'))
-            except socket.error as e:
-                handle_disconnect(request, "download", data_size_recv)
+            send_data(data_size_recv)
 
-            progress = (data_size_recv / size) * 100
+            progress = (data_size_recv / (size)) * 100
             sys.stdout.write("Download progress: %d%% \r" %progress)
             sys.stdout.flush()
 
         except socket.error as e:
-            handle_disconnect(request, "download", data_size_recv)
-
+            handle_disconnect(request, "download")
+            size = int(get_data())
+            send_ok()
+            send_data(data_size_recv)
+            data_size_recv = int(get_data())
+            send_ok()
 
         except KeyboardInterrupt:
+            print("KeyboardInterrupt was handled")
             f.close()
-            return
+            client.close()
+            os._exit(1)
 
     f.close()
-    sys.stdout.flush()
     print(file_name + " was downloaded")
 
 def upload(file_name):
@@ -164,8 +183,14 @@ def show_error_message(error):
 
 
 while True:
-    request = input()
-    if (check_valid_request(request)):
-        handle_input_request(request)
+    try:
+        request = input()
+        if (check_valid_request(request)):
+            handle_input_request(request)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt was handled")
+        client.close()
+        os._exit(1)
+
     # else:
     #     show_error_message("Not Valid Command")

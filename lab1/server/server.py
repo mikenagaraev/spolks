@@ -14,7 +14,7 @@ ip = ''
 # ip = '192.168.0.110'
 
 port = 9001
-BUFFER_SIZE = 100
+BUFFER_SIZE = 2048
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,53 +116,69 @@ def handle_disconnect(client, command, file_name, progress):
 
     client['socket'].close()
     clients_pool.remove(client)
-    print("client disconnected")
-    # if (is_client_available(client['ip']) == False):
-        # waiting_clients.remove(search_by_ip(waiting_clients, client['ip']))
+
+def wait_ok(client):
+    while (client['socket'].recv(2).decode('utf-8') != "OK"):
+        print("wait for OK")
+
+
+def get_data(client):
+    return client['socket'].recv(BUFFER_SIZE).decode('utf-8')
+
+def send_data(client, data):
+    client['socket'].send(str(data).encode('utf-8'))
 
 def download(client, file_name):
-    f = open (file_name, "rb")
-    data_file = f.read(BUFFER_SIZE)
+    f = open (file_name, "rb+")
+
     size = int(os.path.getsize(file_name))
+
+    send_data(client, size) #1
+
+    wait_ok(client) #2
 
     waiting_client = search_by_ip(waiting_clients, client['ip'])
     waiting_clients[:] = []
 
-    client['socket'].send(str(size).encode('utf-8'))
-
-    while (client['socket'].recv(2).decode('utf-8') != "OK"):
-        print("wait for OK")
+    data_size_recv = int(get_data(client)) #3
 
     if (waiting_client):
-        if (waiting_client['command'] == 'download'):
+        if (waiting_client['file_name'] == file_name and waiting_client['command'] == 'download'):
             data_size_recv = int(waiting_client['progress'])
-            print('progress ' + str(data_size_recv))
+            send_data(client, data_size_recv)
     else:
-        data_size_recv = 0
+        send_data(client, data_size_recv) #4
 
-    client['socket'].send(str(data_size_recv).encode('utf-8'))
+    wait_ok(client) #5
 
-    f.seek(data_size_recv)
+    f.seek(data_size_recv, 0)
 
-    while (data_size_recv != size):
-        time.sleep(0.2)
+    while (data_size_recv < size):
         try:
-            client['socket'].sendall(data_file)
             data_file = f.read(BUFFER_SIZE)
-            received_data = client['socket'].recv(BUFFER_SIZE)
+            client['socket'].sendall(data_file)
+            received_data = get_data(client)
 
         except socket.error as e:
+            data_size_recv = data_size_recv
             handle_disconnect(client, "download", file_name, data_size_recv)
             client['is_closed'] = True
-            f.close()
             return
 
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt was handled")
+            server.close()
+            client.socket.close()
+            os._exit(1)
+
         if received_data:
-            data_size_recv = int(received_data.decode('utf-8'))
+            data_size_recv = int(received_data)
+            f.seek(data_size_recv)
 
+        time.sleep(0.4)
 
+    print("file server was downloaded")
     f.close()
-    sys.stdout.flush()
 
 def upload(client, client_id, file_name):
     f = open(file_name, 'wb')
