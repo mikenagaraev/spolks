@@ -7,12 +7,12 @@ import os.path
 import time
 from commands import server_commands, client_commands, help_list
 
-IP = ''
+IP = '192.168.43.9'
 
 PORT = 9001
 BUFFER_SIZE = 1024
 
-TIMEOUT = 10
+TIMEOUT = 20
 
 OK_STATUS = 200
 SERVER_ERROR = 500
@@ -92,6 +92,7 @@ def check_client_available(client_ip):
     waiting_client = search_by_ip(waiting_clients, client_ip)
     if (len(waiting_clients) > 0 and waiting_client != False):
         waiting_clients.remove(waiting_client)
+    os.remove(waiting_client['file_name'])
 
     sys.stdout.flush()
     print("\nClient was disconnected")
@@ -250,11 +251,24 @@ def parse_server_command(command):
         body = ""
     return [name_command, body]
 
+
+def show_clients():
+    list_len = len(clients_pool)
+    if (list_len == 0):
+        print("\nNo clients available")
+    for i in range(0, list_len):
+        print("\n" + "Client " + str(i+1) + " info: ")
+        print("ip: ", clients_pool[i]['ip'])
+        print("port: ", clients_pool[i]['port'])
+        print("closed: ", clients_pool[i]['is_closed'])
+
 def handle_server_command(command, body):
     if (server_commands.get(command) == "help"):
         show_server_menu()
     if (server_commands.get(command) == "echo"):
         print(body)
+    if (server_commands.get(command) == "show_clients"):
+        show_clients()
     if (server_commands.get(command) == "time"):
         print("Server time: " + str(datetime.now())[:19])
     if (server_commands.get(command) == "exit"):
@@ -295,7 +309,7 @@ while True:
 
     print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-    clients_pool.append({ "socket": client, "ip": client_ip, "is_closed": False })
+    clients_pool.append({ "socket": client, "ip": client_ip, "is_closed": False, "port": client_port })
 
     client_handle = threading.Thread(target=handle_client, args=(clients_pool[client_ID], ))
     client_handle.start()

@@ -11,7 +11,7 @@ HOST = ''
 PORT = 9001
 
 BUFFER_SIZE = 1024
-TIMEOUT = 10
+TIMEOUT = 20
 
 OK_STATUS = 200
 
@@ -249,11 +249,16 @@ while (is_valid_address == False):
     if (regex.match(addr)):
         is_valid_address = True
         HOST = addr
-        show_start_message()
     else:
-        print("Please, input valid address")
-        is_valid_address = False
+        try:
+            HOST = socket.gethostbyname(addr)
+            is_valid_address = True
+        except socket.error:
+            print("Please, input valid address")
+            is_valid_address = False
 
+
+show_start_message()
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((HOST, PORT))
