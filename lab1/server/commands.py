@@ -17,5 +17,8 @@ server_commands = {
 client_commands = {
     "GET": "download",
     "POST": "upload",
-    "DELETE": "delete"
+    "DELETE": "delete",
+    "ECHO": "echo",
+    "TIME": "time",
+    "EXIT": "exit"
 }

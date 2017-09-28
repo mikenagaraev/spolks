@@ -29,25 +29,38 @@ def get_data():
 def send_data(data):
     client.send(str(data).encode('utf-8'))
 
+
 def handle_input_request(request):
     command = request.split()
     name_command = command[0]
 
     if (len(command) == 2):
-        file_name = command[1]
+        body = command[1]
+
+    if (client_commands.get(name_command) == "echo"):
+        send_data(request)
+        if (wait_for_ack(name_command) == False):
+            return
+        echo(body)
+
+    if (client_commands.get(name_command) == "time"):
+        send_data(request)
+        if (wait_for_ack(name_command) == False):
+            return
+        time()
 
     if (client_commands.get(name_command) == "download"):
         send_data(request)
         if (wait_for_ack(name_command) == False):
             return
-        download(file_name, request)
+        download(body, request)
 
     if (client_commands.get(name_command) == "upload"):
-        if (is_file_exist(file_name)):
+        if (is_file_exist(body)):
             send_data(request)
             if (wait_for_ack(name_command) == False):
                 return
-            upload(file_name, request)
+            upload(body, request)
         else:
             show_error_message("No such file exists")
 
@@ -55,9 +68,13 @@ def handle_input_request(request):
         send_data(request)
         if (wait_for_ack(name_command) == False):
             return
-        delete(file_name, request)
+        delete(body, request)
 
     if (client_commands.get(name_command) == "exit"):
+        send_data(request)
+        if (wait_for_ack(name_command) == False):
+            return
+        client.close()
         os._exit(1)
 
 def wait_for_ack(command_to_compare):
@@ -112,6 +129,13 @@ def is_server_available(request, command):
 
 def is_file_exist(file_name):
     return os.path.exists(file_name)
+
+def echo(body):
+    send_data(body)
+    print(get_data())
+
+def time():
+    print(get_data())
 
 def download(file_name, request):
     size = int(get_data()) #1

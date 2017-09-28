@@ -46,17 +46,9 @@ def time(client):
     server_time = "Server time: " + str(datetime.now())[:19]
     send_data(client, server_time)
 
-def exit_client(client):
-    clients_pool.remove(client)
-    client['is_closed'] = True
-    client['socket'].close()
-    clients_handles[client['id']].kill()
-
 def handle_client_request(client, request):
     command = request.split()
     name_command = command[0]
-
-    print(request)
 
     if (len(command) == 2):
         body = command[1]
@@ -81,10 +73,6 @@ def handle_client_request(client, request):
     elif (client_commands.get(name_command) == "time"):
         send_status(client['socket'], name_command, OK_STATUS)
         time(client)
-
-    elif (client_commands.get(name_command) == "exit"):
-        send_status(client['socket'], name_command, OK_STATUS)
-        exit_client(client)
 
     elif (client_commands.get(name_command) == "delete"):
         if (is_file_exist(body)):
@@ -331,8 +319,6 @@ clients_pool = []
 waiting_clients = []
 
 
-clients_handles = []
-
 while True:
 
     client_ID = 0
@@ -343,11 +329,9 @@ while True:
 
     print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-    clients_pool.append({ "id": client_ID, "socket": client, "ip": client_ip, "is_closed": False, "port": client_port })
+    clients_pool.append({ "socket": client, "ip": client_ip, "is_closed": False, "port": client_port })
 
     client_handle = threading.Thread(target=handle_client, args=(clients_pool[client_ID], ))
     client_handle.start()
-
-    clients_handles.append(client_handle)
 
     client_ID += 1;
