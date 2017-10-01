@@ -268,18 +268,20 @@ REGULAR_IP = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-
 regex = re.compile(REGULAR_IP)
 
 
-while (is_valid_address == False):
-    addr = input("\nInput host addres: ")
-    if (regex.match(addr)):
-        is_valid_address = True
-        HOST = addr
-    else:
-        try:
-            HOST = socket.gethostbyname(addr)
-            is_valid_address = True
-        except socket.error:
-            print("Please, input valid address")
-            is_valid_address = False
+# while (is_valid_address == False):
+#     addr = input("\nInput host addres: ")
+#     if (regex.match(addr)):
+#         is_valid_address = True
+#         HOST = addr
+#     else:
+#         try:
+#             HOST = socket.gethostbyname(addr)
+#             is_valid_address = True
+#         except socket.error:
+#             print("Please, input valid address")
+#             is_valid_address = False
+
+HOST = ''
 
 show_start_message()
 
