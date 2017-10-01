@@ -47,7 +47,7 @@ def handle_input_request(request):
         send_data(request)
         if (wait_for_ack(name_command) == False):
             return
-        time()
+        get_time()
 
     if (client_commands.get(name_command) == "download"):
         send_data(request)
@@ -134,7 +134,7 @@ def echo(body):
     send_data(body)
     print(get_data())
 
-def time():
+def get_time():
     print(get_data())
 
 def download(file_name, request):

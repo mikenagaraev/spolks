@@ -45,7 +45,7 @@ def echo(client, body):
     get_data(client)
     send_data(client, body)
 
-def time(client):
+def send_time(client):
     server_time = "Server time: " + str(datetime.now())[:19]
     send_data(client, server_time)
 
@@ -60,8 +60,6 @@ def exit_client(client):
 def handle_client_request(client, request):
     command = request.split()
     name_command = command[0]
-
-    print(request)
 
     if (len(command) == 2):
         body = command[1]
@@ -85,7 +83,7 @@ def handle_client_request(client, request):
 
     elif (client_commands.get(name_command) == "time"):
         send_status(client['socket'], name_command, OK_STATUS)
-        time(client)
+        send_time(client)
 
     elif (client_commands.get(name_command) == "exit"):
         send_status(client['socket'], name_command, OK_STATUS)
@@ -351,29 +349,28 @@ client_ID = 0
 while True:
 
 
-    inputready,outputready,exceptready = select.select(input_s,[], [])
-    for s in inputready:
+    # inputready,outputready,exceptready = select.select(input_s,[], [])
+    # for s in inputready:
+    #
+    #     if s == server:
+        client, client_info = server.accept()
+        input_s.append(client)
 
-        if s == server:
-            client, client_info = server.accept()
-            input_s.append(client)
+        client_ip = client_info[0]
+        client_port = client_info[1]
 
-            client_ip = client_info[0]
-            client_port = client_info[1]
+        print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-            print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
+        client_obj = {
+                        "id": client_ID,
+                        "socket": client,
+                        "ip": client_ip,
+                        "is_closed": False,
+                        "port": client_port
+                    }
 
-            client_obj = {
-                            "id": client_ID,
-                            "socket": client,
-                            "ip": client_ip,
-                            "is_closed": False,
-                            "port": client_port
-                        }
+        clients_pool.append(client_obj)
 
-            clients_pool.append(client_obj)
-            print(clients_pool, client_ID)
-
-            client_handle = threading.Thread(target=handle_client, args=(clients_pool[len(clients_pool) - 1], ))
-            client_handle.start()
-            client_ID += 1
+        client_handle = threading.Thread(target=handle_client, args=(clients_pool[len(clients_pool) - 1], ))
+        client_handle.start()
+        client_ID += 1
