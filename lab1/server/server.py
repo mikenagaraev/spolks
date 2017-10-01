@@ -1,4 +1,5 @@
 import socket
+import select
 import threading
 from datetime import datetime
 import sys
@@ -7,7 +8,7 @@ import os.path
 import time
 from commands import server_commands, client_commands, help_list
 
-IP = '192.168.43.9'
+IP = ''
 
 PORT = 9001
 BUFFER_SIZE = 1024
@@ -16,6 +17,8 @@ TIMEOUT = 20
 
 OK_STATUS = 200
 SERVER_ERROR = 500
+
+
 
 
 def send_status_and_message(client, request, status, message):
@@ -47,10 +50,12 @@ def time(client):
     send_data(client, server_time)
 
 def exit_client(client):
+    global input_s
+
+    input_s.remove(client['socket'])
     clients_pool.remove(client)
     client['is_closed'] = True
     client['socket'].close()
-    clients_handles[client['id']].kill()
 
 def handle_client_request(client, request):
     command = request.split()
@@ -132,6 +137,12 @@ def check_client_available(client_ip, command):
 def search_by_ip(list, ip):
     found_client = [element for element in list if element['ip'] == ip]
     return found_client[0] if len(found_client) > 0 else False
+
+def search_by_socket(list, socket):
+    found_client = [element for element in list if element['socket'] == socket]
+    return found_client[0] if len(found_client) > 0 else False
+
+
 
 def save_to_waiting_clients(ip, command, file_name, progress):
     waiting_clients.append(
@@ -321,7 +332,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 server.bind((IP, PORT))
-server.listen(5)
+server.listen(2)
 
 show_start_message();
 server_cli = threading.Thread(target=server_cli)
@@ -331,23 +342,38 @@ clients_pool = []
 waiting_clients = []
 
 
-clients_handles = []
+input_s = [server,]
+
+
+
+client_ID = 0
 
 while True:
 
-    client_ID = 0
-    client, client_info = server.accept()
 
-    client_ip = client_info[0]
-    client_port = client_info[1]
+    inputready,outputready,exceptready = select.select(input_s,[], [])
+    for s in inputready:
 
-    print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
+        if s == server:
+            client, client_info = server.accept()
+            input_s.append(client)
 
-    clients_pool.append({ "id": client_ID, "socket": client, "ip": client_ip, "is_closed": False, "port": client_port })
+            client_ip = client_info[0]
+            client_port = client_info[1]
 
-    client_handle = threading.Thread(target=handle_client, args=(clients_pool[client_ID], ))
-    client_handle.start()
+            print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-    clients_handles.append(client_handle)
+            client_obj = {
+                            "id": client_ID,
+                            "socket": client,
+                            "ip": client_ip,
+                            "is_closed": False,
+                            "port": client_port
+                        }
 
-    client_ID += 1;
+            clients_pool.append(client_obj)
+            print(clients_pool, client_ID)
+
+            client_handle = threading.Thread(target=handle_client, args=(clients_pool[len(clients_pool) - 1], ))
+            client_handle.start()
+            client_ID += 1
