@@ -253,13 +253,24 @@ def upload(client, file_name):
 
     while (data_size_recv < size):
         try:
-            data = client['socket'].recv(BUFFER_SIZE)
-            f.write(data)
-            data_size_recv += len(data)
-            send_data(client, data_size_recv)
-            f.seek(data_size_recv, 0)
+            data = client['socket'].recv(2, socket.MSG_OOB)
 
         except socket.error as e:
+            data = False
+
+        try:
+            if data:
+                print ("Urgent data")
+                print (data.decode('utf-8'))
+            else:
+                data = client['socket'].recv(BUFFER_SIZE)
+                f.write(data)
+                data_size_recv += len(data)
+                send_data(client, data_size_recv)
+                f.seek(data_size_recv, 0)
+
+        except socket.error as e:
+            # data = None
             f.close()
             handle_disconnect(client, "upload", file_name, data_size_recv)
             client['is_closed'] = True

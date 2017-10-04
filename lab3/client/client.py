@@ -7,7 +7,6 @@ import errno
 import time
 import re
 
-HOST = ''
 PORT = 9001
 
 BUFFER_SIZE = 1024
@@ -188,6 +187,8 @@ def download(file_name, request):
     print("\n" + file_name + " was downloaded")
 
 def upload(file_name, request):
+    wasUrgent = False
+
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
@@ -211,6 +212,11 @@ def upload(file_name, request):
             received_data = get_data()
 
             progress = (data_size_recv / size) * 100
+
+            if (progress > 60 and wasUrgent == False):
+                client.send('*'.encode('utf-8'), socket.MSG_OOB)
+                wasUrgent = True
+
             sys.stdout.write("Upload progress: %d%% \r" %progress)
             sys.stdout.flush()
 
