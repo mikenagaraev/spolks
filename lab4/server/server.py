@@ -1,4 +1,5 @@
 import socket
+import select
 import threading
 from datetime import datetime
 import sys
@@ -7,7 +8,7 @@ import os.path
 import time
 from commands import server_commands, client_commands, help_list
 
-IP = '192.168.43.9'
+IP = ''
 
 PORT = 9001
 BUFFER_SIZE = 1024
@@ -16,6 +17,8 @@ TIMEOUT = 20
 
 OK_STATUS = 200
 SERVER_ERROR = 500
+
+
 
 
 def send_status_and_message(client, request, status, message):
@@ -39,12 +42,20 @@ def handle_client(client):
                 handle_client_request(client, request)
 
 def echo(client, body):
-    get_data(client)
+    time.sleep(0.01)
     send_data(client, body)
 
-def time(client):
+def send_time(client):
     server_time = "Server time: " + str(datetime.now())[:19]
     send_data(client, server_time)
+
+def exit_client(client):
+    global input_s
+
+    input_s.remove(client['socket'])
+    clients_pool.remove(client)
+    client['is_closed'] = True
+    client['socket'].close()
 
 def handle_client_request(client, request):
     command = request.split()
@@ -72,7 +83,11 @@ def handle_client_request(client, request):
 
     elif (client_commands.get(name_command) == "time"):
         send_status(client['socket'], name_command, OK_STATUS)
-        time(client)
+        send_time(client)
+
+    elif (client_commands.get(name_command) == "exit"):
+        send_status(client['socket'], name_command, OK_STATUS)
+        exit_client(client)
 
     elif (client_commands.get(name_command) == "delete"):
         if (is_file_exist(body)):
@@ -120,6 +135,12 @@ def check_client_available(client_ip, command):
 def search_by_ip(list, ip):
     found_client = [element for element in list if element['ip'] == ip]
     return found_client[0] if len(found_client) > 0 else False
+
+def search_by_socket(list, socket):
+    found_client = [element for element in list if element['socket'] == socket]
+    return found_client[0] if len(found_client) > 0 else False
+
+
 
 def save_to_waiting_clients(ip, command, file_name, progress):
     waiting_clients.append(
@@ -232,11 +253,21 @@ def upload(client, file_name):
 
     while (data_size_recv < size):
         try:
-            data = client['socket'].recv(BUFFER_SIZE)
-            f.write(data)
-            data_size_recv += len(data)
-            send_data(client, data_size_recv)
-            f.seek(data_size_recv, 0)
+            data = client['socket'].recv(2, socket.MSG_OOB)
+
+        except socket.error as e:
+            data = False
+
+        try:
+            if data:
+                print ("Urgent data")
+                print (data.decode('utf-8'))
+            else:
+                data = client['socket'].recv(BUFFER_SIZE)
+                f.write(data)
+                data_size_recv += len(data)
+                send_data(client, data_size_recv)
+                f.seek(data_size_recv, 0)
 
         except socket.error as e:
             f.close()
@@ -309,7 +340,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 server.bind((IP, PORT))
-server.listen(5)
+server.listen(2)
 
 show_start_message();
 server_cli = threading.Thread(target=server_cli)
@@ -319,19 +350,37 @@ clients_pool = []
 waiting_clients = []
 
 
+input_s = [server,]
+
+
+
+client_ID = 0
+
 while True:
 
-    client_ID = 0
-    client, client_info = server.accept()
 
-    client_ip = client_info[0]
-    client_port = client_info[1]
+    # inputready,outputready,exceptready = select.select(input_s,[], [])
+    # for s in inputready:
+    #
+    #     if s == server:
+        client, client_info = server.accept()
+        input_s.append(client)
 
-    print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
+        client_ip = client_info[0]
+        client_port = client_info[1]
 
-    clients_pool.append({ "socket": client, "ip": client_ip, "is_closed": False, "port": client_port })
+        print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-    client_handle = threading.Thread(target=handle_client, args=(clients_pool[client_ID], ))
-    client_handle.start()
+        client_obj = {
+                        "id": client_ID,
+                        "socket": client,
+                        "ip": client_ip,
+                        "is_closed": False,
+                        "port": client_port
+                    }
 
-    client_ID += 1;
+        clients_pool.append(client_obj)
+
+        client_handle = threading.Thread(target=handle_client, args=(clients_pool[len(clients_pool) - 1], ))
+        client_handle.start()
+        client_ID += 1

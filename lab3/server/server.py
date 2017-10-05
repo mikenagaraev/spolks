@@ -33,16 +33,15 @@ def is_file_exist(file_name):
     return os.path.exists(file_name)
 
 def handle_client(client):
-    while True:
-        if (client["is_closed"] == False):
-            request = client['socket'].recv(BUFFER_SIZE).decode('utf-8')
-            request = request.strip()
-            if request != '':
-                print("[*] Received: %s" %request)
-                handle_client_request(client, request)
+    if (client["is_closed"] == False):
+        request = client['socket'].recv(BUFFER_SIZE).decode('utf-8')
+        request = request.strip()
+        if request != '':
+            print("[*] Received: %s" %request)
+            handle_client_request(client, request)
 
 def echo(client, body):
-    get_data(client)
+    time.sleep(0.001)
     send_data(client, body)
 
 def send_time(client):
@@ -270,7 +269,6 @@ def upload(client, file_name):
                 f.seek(data_size_recv, 0)
 
         except socket.error as e:
-            # data = None
             f.close()
             handle_disconnect(client, "upload", file_name, data_size_recv)
             client['is_closed'] = True
@@ -350,38 +348,46 @@ server_cli.start()
 clients_pool = []
 waiting_clients = []
 
-
-input_s = [server,]
-
-
+inputs = [server]
+outputs = []
 
 client_ID = 0
 
 while True:
 
 
-    # inputready,outputready,exceptready = select.select(input_s,[], [])
-    # for s in inputready:
-    #
-    #     if s == server:
-        client, client_info = server.accept()
-        input_s.append(client)
+    inputready,outputready,exceptready = select.select(inputs,outputs, inputs)
+    for item in inputready:
+        if item == server:
+            client, client_info = server.accept()
+            client.setblocking(0)
 
-        client_ip = client_info[0]
-        client_port = client_info[1]
+            client_ip = client_info[0]
+            client_port = client_info[1]
 
-        print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
+            print("[*] Accepted connection from: %s:%d" % (client_ip, client_port))
 
-        client_obj = {
-                        "id": client_ID,
-                        "socket": client,
-                        "ip": client_ip,
-                        "is_closed": False,
-                        "port": client_port
-                    }
+            client_obj = {
+                            "id": client_ID,
+                            "socket": client,
+                            "ip": client_ip,
+                            "is_closed": False,
+                            "port": client_port
+                        }
 
-        clients_pool.append(client_obj)
+            clients_pool.append(client_obj)
+            inputs.append(client)
 
-        client_handle = threading.Thread(target=handle_client, args=(clients_pool[len(clients_pool) - 1], ))
-        client_handle.start()
-        client_ID += 1
+            client_ID += 1
+
+        else:
+            print("client sent data")
+            found_client = search_by_socket(clients_pool, item)
+            handle_client(found_client)
+
+            if item not in outputs:
+                outputs.append(item)
+
+    # for item in outputready:
+    #     print("outputready")
+    #     print(outputready)
