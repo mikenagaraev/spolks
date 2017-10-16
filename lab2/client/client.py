@@ -15,18 +15,15 @@ TIMEOUT = 20
 OK_STATUS = 200
 
 
-def wait_ok():
-    while (client.recv(2).decode('utf-8') != "OK"):
-        print("wait for OK")
 
-def send_ok():
-    client.send("OK".encode('utf-8'))
 
 def get_data():
-    return client.recv(BUFFER_SIZE).decode('utf-8')
+    data, address = client.recvfrom(BUFFER_SIZE)
+    data = data.decode('utf-8')
+    return [data, address]
 
 def send_data(data):
-    client.send(str(data).encode('utf-8'))
+    client.sendto(str(data).encode('utf-8'), server_address)
 
 
 def handle_input_request(request):
@@ -63,12 +60,6 @@ def handle_input_request(request):
         else:
             show_error_message("No such file exists")
 
-    if (client_commands.get(name_command) == "delete"):
-        send_data(request)
-        if (wait_for_ack(name_command) == False):
-            return
-        delete(body, request)
-
     if (client_commands.get(name_command) == "exit"):
         send_data(request)
         if (wait_for_ack(name_command) == False):
@@ -78,7 +69,7 @@ def handle_input_request(request):
 
 def wait_for_ack(command_to_compare):
     while True:
-        response = client.recv(BUFFER_SIZE).decode('utf-8').split(" ", 2)
+        response = get_data()[0].split(" ", 2)
 
         if not response:
             return False
@@ -107,9 +98,9 @@ def is_server_available(request, command):
 
     while(i > 0):
         try:
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((HOST, PORT))
-            client.send(request.encode('utf-8'))
+            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            client.connect(server_address)
+            client.sendto(request.encode('utf-8'), server_address)
             wait_for_ack(command)
             return True
 
@@ -130,21 +121,17 @@ def is_file_exist(file_name):
     return os.path.exists(file_name)
 
 def echo():
-    print(get_data())
+    print(get_data()[0])
 
 def get_time():
-    print(get_data())
+    print(get_data()[0])
 
 def download(file_name, request):
-    size = int(get_data()) #1
-
-    send_ok() #2
+    size = int(get_data()[0]) #1
 
     send_data(0) #3
 
-    data_size_recv = int(get_data()) #4
-
-    send_ok() #5
+    data_size_recv = int(get_data()[0]) #4
 
     if (data_size_recv == 0):
         f = open(file_name, "wb")
@@ -153,7 +140,7 @@ def download(file_name, request):
 
     while (data_size_recv < size):
         try:
-            data = client.recv(BUFFER_SIZE)
+            data = client.recvfrom(BUFFER_SIZE)[0]
             f.seek(data_size_recv, 0)
             f.write(data)
             data_size_recv += len(data)
@@ -165,11 +152,9 @@ def download(file_name, request):
 
         except socket.error as e:
             if(is_server_available(request, "download")):
-                size = int(get_data())
-                send_ok()
+                size = int(get_data()[0])
                 send_data(data_size_recv)
-                data_size_recv = int(get_data())
-                send_ok()
+                data_size_recv = int(get_data()[0])
                 print("\n")
             else:
                 f.close()
@@ -194,27 +179,19 @@ def upload(file_name, request):
 
     send_data(size) #1
 
-    wait_ok() #2
-
     send_data(0) #3
 
-    data_size_recv = int(get_data()) #4
-
-    wait_ok() #5
+    data_size_recv = int(get_data()[0]) #4
 
     f.seek(data_size_recv, 0)
 
     while (data_size_recv < size):
         try:
             data_file = f.read(BUFFER_SIZE)
-            client.send(data_file)
-            received_data = get_data()
+            client.sendto(data_file, server_address)
+            received_data = get_data()[0]
 
             progress = (data_size_recv / size) * 100
-
-            if (progress > 60 and wasUrgent == False):
-                client.send('*'.encode('utf-8'), socket.MSG_OOB)
-                wasUrgent = True
 
             sys.stdout.write("Upload progress: %d%% \r" %progress)
             sys.stdout.flush()
@@ -222,10 +199,8 @@ def upload(file_name, request):
         except socket.error as e:
             if(is_server_available(request, "upload")):
                 send_data(size)
-                wait_ok()
                 send_data(data_size_recv)
-                data_size_recv = int(get_data())
-                wait_ok()
+                data_size_recv = int(get_data()[0])
                 print("\n")
             else:
                 f.close()
@@ -244,10 +219,6 @@ def upload(file_name, request):
 
     f.close()
     print("\n" + file_name + " was uploaded")
-
-
-def delete(file_name):
-    pass
 
 def exit():
     pass
@@ -273,33 +244,33 @@ REGULAR_IP = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-
 regex = re.compile(REGULAR_IP)
 
 
-while (is_valid_address == False):
-    addr = input("\nInput host addres: ")
-    if (regex.match(addr)):
-        is_valid_address = True
-        HOST = addr
-    else:
-        try:
-            HOST = socket.gethostbyname(addr)
-            is_valid_address = True
-        except socket.error:
-            print("Please, input valid address")
-            is_valid_address = False
+# while (is_valid_address == False):
+#     addr = input("\nInput host addres: ")
+#     if (regex.match(addr)):
+#         is_valid_address = True
+#         HOST = addr
+#     else:
+#         try:
+#             HOST = socket.gethostbyname(addr)
+#             is_valid_address = True
+#         except socket.error:
+#             print("Please, input valid address")
+#             is_valid_address = False
 
-# HOST = ''
+HOST = ''
+server_address = ("localhost", 10000)
 
 show_start_message()
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((HOST, PORT))
+client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client.connect(server_address)
 
 
 while True:
 
     try:
         request = input()
-        if (check_valid_request(request)):
-            handle_input_request(request)
+        handle_input_request(request)
     except KeyboardInterrupt:
         print("KeyboardInterrupt was handled")
         client.close()

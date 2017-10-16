@@ -50,9 +50,6 @@ def send_time(client):
     send_data(client, server_time)
 
 def exit_client(client):
-    global input_s
-
-    input_s.remove(client['socket'])
     clients_pool.remove(client)
     client['is_closed'] = True
     client['socket'].close()
@@ -350,21 +347,10 @@ clients_pool = []
 waiting_clients = []
 
 
-input_s = [server,]
-
-
-
 client_ID = 0
 
 while True:
-
-
-    # inputready,outputready,exceptready = select.select(input_s,[], [])
-    # for s in inputready:
-    #
-    #     if s == server:
         client, client_info = server.accept()
-        input_s.append(client)
 
         client_ip = client_info[0]
         client_port = client_info[1]

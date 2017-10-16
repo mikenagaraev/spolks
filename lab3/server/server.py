@@ -49,9 +49,9 @@ def send_time(client):
     send_data(client, server_time)
 
 def exit_client(client):
-    global input_s
+    global inputs
 
-    input_s.remove(client['socket'])
+    inputs.remove(client['socket'])
     clients_pool.remove(client)
     client['is_closed'] = True
     client['socket'].close()
@@ -339,7 +339,8 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 server.bind((IP, PORT))
-server.listen(2)
+server.listen(1)
+server.setblocking(0)
 
 show_start_message();
 server_cli = threading.Thread(target=server_cli)
@@ -349,18 +350,18 @@ clients_pool = []
 waiting_clients = []
 
 inputs = [server]
-outputs = []
 
 client_ID = 0
 
 while True:
 
 
-    inputready,outputready,exceptready = select.select(inputs,outputs, inputs)
-    for item in inputready:
-        if item == server:
+    inputready,outputready,exceptready = select.select(inputs,[], inputs)
+
+    for ready_socket in inputready:
+        if ready_socket == server:
             client, client_info = server.accept()
-            client.setblocking(0)
+            # client.setblocking(0) ???
 
             client_ip = client_info[0]
             client_port = client_info[1]
@@ -381,13 +382,12 @@ while True:
             client_ID += 1
 
         else:
-            print("client sent data")
-            found_client = search_by_socket(clients_pool, item)
-            handle_client(found_client)
-
-            if item not in outputs:
-                outputs.append(item)
-
-    # for item in outputready:
-    #     print("outputready")
-    #     print(outputready)
+            request = ready_socket.recv(BUFFER_SIZE).decode('utf-8')
+            found_client = search_by_socket(clients_pool, ready_socket)
+            if request:
+                request = request.strip()
+                if request != '':
+                    print("[*] Received: %s" %request)
+                    handle_client_request(found_client, request)
+            else:
+                exit_client(found_client)
