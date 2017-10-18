@@ -140,13 +140,9 @@ def get_time():
 def download(file_name, request):
     size = int(get_data()) #1
 
-    send_ok() #2
-
     send_data(0) #3
 
     data_size_recv = int(get_data()) #4
-
-    send_ok() #5
 
     if (data_size_recv == 0):
         f = open(file_name, "wb")
@@ -168,10 +164,8 @@ def download(file_name, request):
         except socket.error as e:
             if(is_server_available(request, "download")):
                 size = int(get_data())
-                send_ok()
                 send_data(data_size_recv)
                 data_size_recv = int(get_data())
-                send_ok()
                 print("\n")
             else:
                 f.close()
@@ -267,19 +261,19 @@ is_valid_address = False
 REGULAR_IP = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
 regex = re.compile(REGULAR_IP)
 
-
-while (is_valid_address == False):
-    addr = input("\nInput host addres: ")
-    if (regex.match(addr)):
-        is_valid_address = True
-        HOST = addr
-    else:
-        try:
-            HOST = socket.gethostbyname(addr)
-            is_valid_address = True
-        except socket.error:
-            print("Please, input valid address")
-            is_valid_address = False
+# 
+# while (is_valid_address == False):
+#     addr = input("\nInput host addres: ")
+#     if (regex.match(addr)):
+#         is_valid_address = True
+#         HOST = addr
+#     else:
+#         try:
+#             HOST = socket.gethostbyname(addr)
+#             is_valid_address = True
+#         except socket.error:
+#             print("Please, input valid address")
+#             is_valid_address = False
 
 show_start_message()
 

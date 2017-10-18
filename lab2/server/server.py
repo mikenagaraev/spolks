@@ -36,7 +36,7 @@ def exit_client(addr):
 def save_to_waiting_clients(addr, command, file_name, progress):
     waiting_clients.append(
         {
-            'addr': addr,
+            'addr': addr[0],
             'command': command,
             'file_name': file_name,
             'progress': progress
@@ -44,13 +44,15 @@ def save_to_waiting_clients(addr, command, file_name, progress):
 
 
 def search_by_addr(list, addr):
-    found_client = [element for element in list if element['addr'] == addr]
+    found_client = [element for element in list if element['addr'] == addr[0]]
     return found_client[0] if len(found_client) > 0 else False
 
 def handle_disconnect(client, command, file_name, progress):
     save_to_waiting_clients(addr, command, file_name, progress)
 
 def download(addr, file_name):
+    global WINDOW_SIZE
+
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
@@ -62,51 +64,70 @@ def download(addr, file_name):
 
     send_data(addr, WINDOW_SIZE)
 
-    send_data(addr, size) #1
+    send_data(addr, size)
 
-    data_size_recv = int(get_data()[0]) #3
+    data_size_recv = int(get_data()[0])
 
     waiting_client = search_by_addr(waiting_clients, addr)
     if (len(waiting_clients) > 0 and waiting_client != False and waiting_client["file_name"] == file_name and waiting_client['command'] == 'download'):
         waiting_clients.remove(waiting_client)
         data_size_recv = int(waiting_client['progress'])
 
-    send_data(addr, data_size_recv) #4
+    send_data(addr, data_size_recv)
 
     f.seek(data_size_recv, 0)
 
-    while (data_size_recv < size):
+    current_pos = data_size_recv
+
+
+    time_start = datetime.now()
+
+    while (1):
         try:
             data_file = f.read(BUFFER_SIZE)
-            server.sendto(data_file, addr)
-            received_data = get_data()[0]
+            if (current_pos >= size):
+                server.sendto(b"EOF", addr)
+                break
+            else:
+                server.sendto(data_file, addr)
+                current_pos = current_pos + BUFFER_SIZE
+                f.seek(current_pos)
 
-        except socket.error as e:
-            f.close()
-            handle_disconnect(addr, "download", file_name, data_size_recv)
-            return
+            client_window = client_window - BUFFER_SIZE
+            if (client_window == 0):
+                received_data = get_data()[0]
+                client_window = WINDOW_SIZE
+
+                if (received_data == "ERROR"):
+                    handle_disconnect(addr, "download", file_name, data_size_recv)
+                    time.sleep(1)
+                    print("lost connection")
+                    break
+                else:
+                    data_size_recv = int(received_data)
+
 
         except KeyboardInterrupt:
             server.close()
             os._exit(1)
 
-        if received_data:
-            data_size_recv = int(received_data)
-            f.seek(data_size_recv)
+    time_end = datetime.now()
 
-        time.sleep(0.05)
+    delta_time = int((time_end - time_start).total_seconds() * 1000)
+
+    print(delta_time)
 
     f.close()
 
 def upload(addr, file_name):
-    size = int(get_data()[0]) #1
+    size = int(get_data()[0])
 
-    data_size_recv = get_data()[0] #3
+    data_size_recv = get_data()[0]
 
     if (data_size_recv):
         data_size_recv = int(data_size_recv)
 
-    send_data(addr, data_size_recv) #4
+    send_data(addr, data_size_recv)
 
     if (data_size_recv == 0):
         f = open(file_name, "wb")

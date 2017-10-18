@@ -7,7 +7,7 @@ import os.path
 import time
 from commands import server_commands, client_commands, help_list
 
-IP = '192.168.43.9'
+IP = ''
 
 PORT = 9001
 BUFFER_SIZE = 1024
@@ -167,8 +167,6 @@ def download(client, file_name):
 
     send_data(client, size) #1
 
-    wait_ok(client) #2
-
     waiting_client = search_by_ip(waiting_clients, client['ip'])
     if (len(waiting_clients) > 0 and waiting_client != False):
         waiting_clients.remove(waiting_client)
@@ -182,9 +180,9 @@ def download(client, file_name):
     else:
         send_data(client, data_size_recv) #4
 
-    wait_ok(client) #5
-
     f.seek(data_size_recv, 0)
+
+    time_start = datetime.now()
 
     while (data_size_recv < size):
         try:
@@ -207,8 +205,11 @@ def download(client, file_name):
             data_size_recv = int(received_data)
             f.seek(data_size_recv)
 
-        time.sleep(0.05)
+    time_end = datetime.now()
 
+    delta_time = int((time_end - time_start).total_seconds() * 1000)
+
+    print(delta_time)
     f.close()
 
 def upload(client, file_name):

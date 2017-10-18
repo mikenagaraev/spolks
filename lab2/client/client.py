@@ -14,6 +14,8 @@ TIMEOUT = 20
 
 OK_STATUS = 200
 
+UPLOAD_PROGRESS = 0
+DOWNLOAD_PROGRESS = 0
 
 
 
@@ -126,37 +128,56 @@ def echo():
 def get_time():
     print(get_data()[0])
 
+def handle_disconnect():
+    print("wait server")
+    time.sleep(1)
+
 def download(file_name, request):
+    global WINDOW_SIZE
+
     send_data(WINDOW_SIZE)
 
     WINDOW_SIZE = int(get_data()[0])
+    server_window = WINDOW_SIZE
 
-    size = int(get_data()[0]) #1
+    size = int(get_data()[0])
 
-    send_data(0) #3
+    send_data(DOWNLOAD_PROGRESS)
 
-    data_size_recv = int(get_data()[0]) #4
+    data_size_recv = int(get_data()[0])
 
     if (data_size_recv == 0):
         f = open(file_name, "wb")
     else:
         f = open(file_name, "rb+")
 
-    while (data_size_recv < size):
+    current_pos = data_size_recv
+
+    while (1):
         try:
             data = client.recvfrom(BUFFER_SIZE)[0]
-            f.seek(data_size_recv, 0)
-            f.write(data)
-            data_size_recv += len(data)
-            if ((BUFFER_SIZE - data_size_recv) > 0):
-                send_data(data_size_recv)
+            if data:
+                if data == b'EOF':
+                    break
+                else:
+                    f.seek(current_pos, 0)
+                    f.write(data)
+                    current_pos += len(data)
+                    server_window = server_window - len(data)
+                    if (server_window == 0):
+                        server_window = WINDOW_SIZE
+                        send_data(current_pos)
+            else:
+                print("Server disconnected")
+                return
 
-            progress = (data_size_recv / (size)) * 100
+            progress = (current_pos / (size)) * 100
             sys.stdout.write("Download progress: %d%% \r" %progress)
             sys.stdout.flush()
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt was handled")
+            send_data("ERROR")
             f.close()
             client.close()
             os._exit(1)
@@ -165,17 +186,15 @@ def download(file_name, request):
     print("\n" + file_name + " was downloaded")
 
 def upload(file_name, request):
-    wasUrgent = False
-
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
 
-    send_data(size) #1
+    send_data(size)
 
-    send_data(0) #3
+    send_data(0)
 
-    data_size_recv = int(get_data()[0]) #4
+    data_size_recv = int(get_data()[0])
 
     f.seek(data_size_recv, 0)
 
