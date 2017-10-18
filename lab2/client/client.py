@@ -7,7 +7,7 @@ import errno
 import time
 import re
 
-PORT = 9001
+WINDOW_SIZE = 2048
 
 BUFFER_SIZE = 1024
 TIMEOUT = 20
@@ -127,6 +127,10 @@ def get_time():
     print(get_data()[0])
 
 def download(file_name, request):
+    send_data(WINDOW_SIZE)
+
+    WINDOW_SIZE = int(get_data()[0])
+
     size = int(get_data()[0]) #1
 
     send_data(0) #3
@@ -144,22 +148,12 @@ def download(file_name, request):
             f.seek(data_size_recv, 0)
             f.write(data)
             data_size_recv += len(data)
-            send_data(data_size_recv)
+            if ((BUFFER_SIZE - data_size_recv) > 0):
+                send_data(data_size_recv)
 
             progress = (data_size_recv / (size)) * 100
             sys.stdout.write("Download progress: %d%% \r" %progress)
             sys.stdout.flush()
-
-        except socket.error as e:
-            if(is_server_available(request, "download")):
-                size = int(get_data()[0])
-                send_data(data_size_recv)
-                data_size_recv = int(get_data()[0])
-                print("\n")
-            else:
-                f.close()
-                client.close()
-                os._exit(1)
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt was handled")

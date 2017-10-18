@@ -11,6 +11,7 @@ from server_cli import server_cli
 
 PORT = 9001
 BUFFER_SIZE = 1024
+WINDOW_SIZE = 2048
 
 TIMEOUT = 20
 
@@ -32,20 +33,43 @@ def send_time(addr):
 def exit_client(addr):
     clients_addr.remove(addr)
 
+def save_to_waiting_clients(addr, command, file_name, progress):
+    waiting_clients.append(
+        {
+            'addr': addr,
+            'command': command,
+            'file_name': file_name,
+            'progress': progress
+        })
+
+
+def search_by_addr(list, addr):
+    found_client = [element for element in list if element['addr'] == addr]
+    return found_client[0] if len(found_client) > 0 else False
+
 def handle_disconnect(client, command, file_name, progress):
-    save_to_waiting_clients(client['ip'], command, file_name, progress)
-    clients_pool.remove(client)
-    client['socket'].close()
-    check_client_available(client['ip'], command)
+    save_to_waiting_clients(addr, command, file_name, progress)
 
 def download(addr, file_name):
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
 
+    client_window = int(get_data()[0])
+
+    if (WINDOW_SIZE > client_window):
+        WINDOW_SIZE = client_window
+
+    send_data(addr, WINDOW_SIZE)
+
     send_data(addr, size) #1
 
     data_size_recv = int(get_data()[0]) #3
+
+    waiting_client = search_by_addr(waiting_clients, addr)
+    if (len(waiting_clients) > 0 and waiting_client != False and waiting_client["file_name"] == file_name and waiting_client['command'] == 'download'):
+        waiting_clients.remove(waiting_client)
+        data_size_recv = int(waiting_client['progress'])
 
     send_data(addr, data_size_recv) #4
 
