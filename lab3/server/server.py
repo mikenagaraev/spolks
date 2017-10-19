@@ -102,35 +102,6 @@ def handle_client_request(client, request):
 def delete(client, file_name):
     pass
 
-def check_client_available(client_ip, command):
-    i = TIMEOUT
-    while(i > 0):
-        waiting_client = search_by_ip(clients_pool, client_ip)
-        sys.stdout.write("Waiting for a client: %d seconds \r" %i)
-        sys.stdout.flush()
-
-        if(waiting_client):
-            sys.stdout.flush()
-            print("\nClient has returned")
-            sys.stdout.flush()
-            return
-
-        i -= 1
-        time.sleep(1)
-
-
-    waiting_client = search_by_ip(waiting_clients, client_ip)
-    if (len(waiting_clients) > 0 and waiting_client != False):
-        waiting_clients.remove(waiting_client)
-
-    if (command == "upload"):
-	    os.remove(waiting_client['file_name'])
-
-    sys.stdout.flush()
-    print("\nClient was disconnected")
-    sys.stdout.flush()
-
-
 def search_by_ip(list, ip):
     found_client = [element for element in list if element['ip'] == ip]
     return found_client[0] if len(found_client) > 0 else False
@@ -153,8 +124,13 @@ def save_to_waiting_clients(ip, command, file_name, progress):
 def handle_disconnect(client, command, file_name, progress):
     save_to_waiting_clients(client['ip'], command, file_name, progress)
     clients_pool.remove(client)
+    inputs.remove(client['socket'])
     client['socket'].close()
-    check_client_available(client['ip'], command)
+
+    sys.stdout.flush()
+    print("\nClient was disconnected")
+    sys.stdout.flush()
+
 
 def wait_ok(client):
     while (client['socket'].recv(2).decode('utf-8') != "OK"):
@@ -354,7 +330,6 @@ inputs = [server]
 client_ID = 0
 
 while True:
-
 
     inputready,outputready,exceptready = select.select(inputs,[], inputs)
 
