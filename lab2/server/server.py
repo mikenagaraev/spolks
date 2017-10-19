@@ -11,7 +11,7 @@ from server_cli import server_cli
 
 PORT = 9001
 BUFFER_SIZE = 1024
-WINDOW_SIZE = 2048
+WINDOW_SIZE = 4096
 
 TIMEOUT = 20
 
@@ -59,6 +59,8 @@ def download(addr, file_name):
 
     size = int(os.path.getsize(file_name))
 
+    print("File size: %f" % (size / (1024 * 1024)))
+
     client_window = int(get_data()[0])
 
     if (WINDOW_SIZE > client_window):
@@ -81,9 +83,12 @@ def download(addr, file_name):
 
     current_pos = data_size_recv
 
-
     time_start = datetime.now()
 
+    speeds = []
+    time_package_start = datetime.now()
+
+    i = 0
     while (1):
         try:
             if (current_pos >= size):
@@ -92,11 +97,20 @@ def download(addr, file_name):
             else:
                 data_file = f.read(BUFFER_SIZE)
                 server.sendto(data_file, addr)
+                i += 1
                 current_pos = current_pos + BUFFER_SIZE
                 f.seek(current_pos)
 
             client_window = client_window - BUFFER_SIZE
             if (client_window == 0):
+                time_package_end = datetime.now()
+
+                delta_time_package = (time_package_end - time_package_start).microseconds / 1000000
+
+                speed = BUFFER_SIZE/ (delta_time_package * 1024 * 1024)
+                speeds.append(speed) # megabyte / s
+
+
                 received_data = get_data()[0]
                 client_window = WINDOW_SIZE
 
@@ -106,6 +120,8 @@ def download(addr, file_name):
                 else:
                     data_size_recv = int(received_data)
 
+                time_package_start = datetime.now()
+
 
         except KeyboardInterrupt:
             f.close()
@@ -114,9 +130,13 @@ def download(addr, file_name):
 
     time_end = datetime.now()
 
-    delta_time = int((time_end - time_start).total_seconds() * 1000)
+    delta_time = (time_end - time_start).microseconds / 1000000
 
-    print(delta_time)
+    print("Total time: %f s" %delta_time)
+
+    average_speed = float(sum(speeds)) / max(len(speeds), 1)
+
+    print("Average speed: %f m/s" %average_speed)
 
     f.close()
 
@@ -156,6 +176,9 @@ def upload(addr, file_name):
 
     time_start = datetime.now()
 
+    speeds = []
+    time_package_start = datetime.now()
+
     while (1):
         try:
             data = server.recvfrom(BUFFER_SIZE)[0]
@@ -174,6 +197,15 @@ def upload(addr, file_name):
                     client_window = client_window - len(data)
                     if (client_window == 0):
                         client_window = WINDOW_SIZE
+
+                        time_package_end = datetime.now()
+
+                        delta_time_package = (time_package_end - time_package_start).microseconds / 1000000
+
+                        speed = BUFFER_SIZE/ (delta_time_package * 1024 * 1024)
+                        speeds.append(speed) # megabyte / s
+
+
                         received_data = get_data()[0]
 
                         if (received_data == "ERROR"):
@@ -189,9 +221,14 @@ def upload(addr, file_name):
 
     time_end = datetime.now()
 
-    delta_time = int((time_end - time_start).total_seconds() * 1000)
+    delta_time = (time_end - time_start).microseconds / 1000000
 
-    print(delta_time)
+    print("Total time: %f s" %delta_time)
+
+    average_speed = float(sum(speeds)) / max(len(speeds), 1)
+
+    print("Average speed: %f m/s" %average_speed)
+
 
     f.close()
 

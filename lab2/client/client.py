@@ -7,7 +7,7 @@ import errno
 import time
 import re
 
-WINDOW_SIZE = 2048
+WINDOW_SIZE = 4096
 
 BUFFER_SIZE = 1024
 TIMEOUT = 20
@@ -153,6 +153,7 @@ def download(file_name, request):
 
     current_pos = data_size_recv
 
+    i = 0
     while (1):
         try:
             data = client.recvfrom(BUFFER_SIZE)[0]
@@ -160,6 +161,7 @@ def download(file_name, request):
                 if data == b'EOF':
                     break
                 else:
+                    i += 1
                     f.seek(current_pos, 0)
                     f.write(data)
                     current_pos += len(data)
@@ -172,8 +174,8 @@ def download(file_name, request):
                 return
 
             progress = (current_pos / size) * 100
-            sys.stdout.write("Download progress: %d%% \r" %progress)
             sys.stdout.flush()
+            sys.stdout.write("Download progress: %d%% \r" %progress)
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt was handled")
