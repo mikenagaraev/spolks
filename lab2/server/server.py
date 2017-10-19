@@ -88,7 +88,6 @@ def download(addr, file_name):
     speeds = []
     time_package_start = datetime.now()
 
-    i = 0
     while (1):
         try:
             if (current_pos >= size):
@@ -97,7 +96,6 @@ def download(addr, file_name):
             else:
                 data_file = f.read(BUFFER_SIZE)
                 server.sendto(data_file, addr)
-                i += 1
                 current_pos = current_pos + BUFFER_SIZE
                 f.seek(current_pos)
 
@@ -130,13 +128,14 @@ def download(addr, file_name):
 
     time_end = datetime.now()
 
-    delta_time = (time_end - time_start).microseconds / 1000000
+    delta_time = (time_end - time_start).microseconds / 1000
 
-    print("Total time: %f s" %delta_time)
+    print("Total time: %f ms" %delta_time)
 
     average_speed = float(sum(speeds)) / max(len(speeds), 1)
+    average_speed = average_speed * (WINDOW_SIZE / BUFFER_SIZE)
 
-    print("Average speed: %f m/s" %average_speed)
+    print("Average speed: %f m/s" % average_speed)
 
     f.close()
 
@@ -201,6 +200,7 @@ def upload(addr, file_name):
                         time_package_end = datetime.now()
 
                         delta_time_package = (time_package_end - time_package_start).microseconds / 1000000
+                        time_package_start = datetime.now()
 
                         speed = BUFFER_SIZE/ (delta_time_package * 1024 * 1024)
                         speeds.append(speed) # megabyte / s
@@ -221,14 +221,14 @@ def upload(addr, file_name):
 
     time_end = datetime.now()
 
-    delta_time = (time_end - time_start).microseconds / 1000000
+    delta_time = (time_end - time_start).microseconds / 1000
 
-    print("Total time: %f s" %delta_time)
+    print("Total time: %f ms" %delta_time)
 
     average_speed = float(sum(speeds)) / max(len(speeds), 1)
+    average_speed = average_speed * (WINDOW_SIZE / BUFFER_SIZE)
 
-    print("Average speed: %f m/s" %average_speed)
-
+    print("Average speed: %f m/s" % average_speed)
 
     f.close()
 

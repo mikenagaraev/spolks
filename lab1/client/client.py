@@ -155,7 +155,6 @@ def download(file_name, request):
             f.seek(data_size_recv, 0)
             f.write(data)
             data_size_recv += len(data)
-            send_data(data_size_recv)
 
             progress = (data_size_recv / (size)) * 100
             sys.stdout.write("Download progress: %d%% \r" %progress)
@@ -261,7 +260,7 @@ is_valid_address = False
 REGULAR_IP = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
 regex = re.compile(REGULAR_IP)
 
-# 
+#
 # while (is_valid_address == False):
 #     addr = input("\nInput host addres: ")
 #     if (regex.match(addr)):

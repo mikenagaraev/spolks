@@ -164,6 +164,8 @@ def download(client, file_name):
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
+    
+    print("File size: %f" % (size / (1024 * 1024)))
 
     send_data(client, size) #1
 
@@ -184,11 +186,22 @@ def download(client, file_name):
 
     time_start = datetime.now()
 
+    speeds = []
+
     while (data_size_recv < size):
         try:
+            time_package_start = datetime.now()
             data_file = f.read(BUFFER_SIZE)
             client['socket'].sendall(data_file)
-            received_data = get_data(client)
+            data_size_recv = data_size_recv + BUFFER_SIZE
+            time_package_end = datetime.now()
+
+            delta_time_package = (time_package_end - time_package_start).microseconds / 1000000
+
+
+            speed = BUFFER_SIZE/ (delta_time_package * 1024 * 1024)
+            speeds.append(speed) # megabyte / s
+
 
         except socket.error as e:
             f.close()
@@ -201,15 +214,16 @@ def download(client, file_name):
             client.socket.close()
             os._exit(1)
 
-        if received_data:
-            data_size_recv = int(received_data)
-            f.seek(data_size_recv)
-
     time_end = datetime.now()
 
-    delta_time = int((time_end - time_start).total_seconds() * 1000)
+    delta_time = (time_end - time_start).microseconds / 1000
 
-    print(delta_time)
+    print("Total time: %f ms" %delta_time)
+
+    average_speed = float(sum(speeds)) / max(len(speeds), 1)
+
+    print("Average speed: %f m/s" %average_speed)
+
     f.close()
 
 def upload(client, file_name):
