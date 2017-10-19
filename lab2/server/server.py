@@ -49,6 +49,8 @@ def search_by_addr(list, addr):
 
 def handle_disconnect(client, command, file_name, progress):
     save_to_waiting_clients(addr, command, file_name, progress)
+    time.sleep(1)
+    print("lost connection")
 
 def download(addr, file_name):
     global WINDOW_SIZE
@@ -84,11 +86,11 @@ def download(addr, file_name):
 
     while (1):
         try:
-            data_file = f.read(BUFFER_SIZE)
             if (current_pos >= size):
                 server.sendto(b"EOF", addr)
                 break
             else:
+                data_file = f.read(BUFFER_SIZE)
                 server.sendto(data_file, addr)
                 current_pos = current_pos + BUFFER_SIZE
                 f.seek(current_pos)
@@ -100,14 +102,13 @@ def download(addr, file_name):
 
                 if (received_data == "ERROR"):
                     handle_disconnect(addr, "download", file_name, data_size_recv)
-                    time.sleep(1)
-                    print("lost connection")
                     break
                 else:
                     data_size_recv = int(received_data)
 
 
         except KeyboardInterrupt:
+            f.close()
             server.close()
             os._exit(1)
 
@@ -120,14 +121,28 @@ def download(addr, file_name):
     f.close()
 
 def upload(addr, file_name):
-    size = int(get_data()[0])
+    global WINDOW_SIZE
 
-    data_size_recv = get_data()[0]
+    client_window = int(get_data()[0]) #1
+
+    if (WINDOW_SIZE > client_window):
+        WINDOW_SIZE = client_window
+
+    send_data(addr, WINDOW_SIZE) #2
+
+    size = int(get_data()[0]) #3
+
+    data_size_recv = get_data()[0] #4
 
     if (data_size_recv):
         data_size_recv = int(data_size_recv)
 
-    send_data(addr, data_size_recv)
+    waiting_client = search_by_addr(waiting_clients, addr)
+    if (len(waiting_clients) > 0 and waiting_client != False and waiting_client["file_name"] == file_name and waiting_client['command'] == 'upload'):
+        waiting_clients.remove(waiting_client)
+        data_size_recv = int(waiting_client['progress'])
+
+    send_data(addr, data_size_recv) #5
 
     if (data_size_recv == 0):
         f = open(file_name, "wb")
@@ -135,23 +150,48 @@ def upload(addr, file_name):
         f = open(file_name, "rb+")
 
 
-    f.seek(data_size_recv, 0)
+    current_pos = data_size_recv
 
-    while (data_size_recv < size):
+    f.seek(current_pos, 0)
+
+    time_start = datetime.now()
+
+    while (1):
         try:
-            data, addr = server.recvfrom(BUFFER_SIZE)
-            f.write(data)
-            data_size_recv += len(data)
-            send_data(addr, data_size_recv)
-            f.seek(data_size_recv, 0)
+            data = server.recvfrom(BUFFER_SIZE)[0]
 
-        except socket.error as e:
+            if data:
+                if data == b"ERROR":
+                    handle_disconnect(addr, "upload", file_name, data_size_recv)
+                    break
+
+                if data == b"EOF":
+                    break
+                else:
+                    f.seek(current_pos, 0)
+                    f.write(data)
+                    current_pos += len(data)
+                    client_window = client_window - len(data)
+                    if (client_window == 0):
+                        client_window = WINDOW_SIZE
+                        received_data = get_data()[0]
+
+                        if (received_data == "ERROR"):
+                            handle_disconnect(addr, "upload", file_name, data_size_recv)
+                            break
+                        else:
+                            data_size_recv = int(received_data)
+
+        except KeyboardInterrupt:
             f.close()
-            handle_disconnect(addr, "upload", file_name, data_size_recv)
-            return
+            server.close()
+            os._exit(1)
 
-        time.sleep(0.05)
+    time_end = datetime.now()
 
+    delta_time = int((time_end - time_start).total_seconds() * 1000)
+
+    print(delta_time)
 
     f.close()
 

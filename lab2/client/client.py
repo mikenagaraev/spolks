@@ -171,7 +171,7 @@ def download(file_name, request):
                 print("Server disconnected")
                 return
 
-            progress = (current_pos / (size)) * 100
+            progress = (current_pos / size) * 100
             sys.stdout.write("Download progress: %d%% \r" %progress)
             sys.stdout.flush()
 
@@ -186,49 +186,55 @@ def download(file_name, request):
     print("\n" + file_name + " was downloaded")
 
 def upload(file_name, request):
+    global WINDOW_SIZE
+
     f = open (file_name, "rb+")
 
     size = int(os.path.getsize(file_name))
 
-    send_data(size)
+    send_data(WINDOW_SIZE) #1
 
-    send_data(0)
+    WINDOW_SIZE = int(get_data()[0]) #2
+    server_window = WINDOW_SIZE
 
-    data_size_recv = int(get_data()[0])
+    send_data(size) #3
 
-    f.seek(data_size_recv, 0)
+    send_data(0) #4
 
-    while (data_size_recv < size):
+    data_size_recv = int(get_data()[0]) #5
+
+    current_pos = data_size_recv
+
+    f.seek(current_pos, 0)
+
+    while (1):
         try:
-            data_file = f.read(BUFFER_SIZE)
-            client.sendto(data_file, server_address)
-            received_data = get_data()[0]
+            if (current_pos >= size):
+                client.sendto(b"EOF", server_address)
+                break
+            else:
+                data_file = f.read(BUFFER_SIZE)
+                client.sendto(data_file, server_address)
+                current_pos = current_pos + BUFFER_SIZE
+                f.seek(current_pos)
 
-            progress = (data_size_recv / size) * 100
+            server_window = server_window - BUFFER_SIZE
+            if (server_window == 0):
+                server_window = WINDOW_SIZE
+                send_data(current_pos)
+
+            progress = (current_pos / size) * 100
 
             sys.stdout.write("Upload progress: %d%% \r" %progress)
             sys.stdout.flush()
 
-        except socket.error as e:
-            if(is_server_available(request, "upload")):
-                send_data(size)
-                send_data(data_size_recv)
-                data_size_recv = int(get_data()[0])
-                print("\n")
-            else:
-                f.close()
-                client.close()
-                os._exit(1)
-
         except KeyboardInterrupt:
-            print("KeyboardInterrupt was handled")
+            print("KeyboardInterrupt handled")
+            client.sendto(b"ERROR", server_address)
             f.close()
             client.close()
             os._exit(1)
 
-        if (received_data):
-            data_size_recv = int(received_data)
-            f.seek(data_size_recv, 0)
 
     f.close()
     print("\n" + file_name + " was uploaded")
@@ -280,11 +286,5 @@ client.connect(server_address)
 
 
 while True:
-
-    try:
-        request = input()
-        handle_input_request(request)
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt was handled")
-        client.close()
-        os._exit(1)
+    request = input()
+    handle_input_request(request)
