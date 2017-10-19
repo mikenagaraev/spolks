@@ -242,6 +242,8 @@ def upload(client, file_name):
 
     f.seek(data_size_recv, 0)
 
+    time_start = datetime.now()
+
     while (data_size_recv < size):
         try:
             data = client['socket'].recv(BUFFER_SIZE)
@@ -256,8 +258,11 @@ def upload(client, file_name):
             client['is_closed'] = True
             return
 
-        time.sleep(0.05)
+    time_end = datetime.now()
 
+    delta_time = int((time_end - time_start).total_seconds() * 1000)
+
+    print(delta_time)
 
     f.close()
 
